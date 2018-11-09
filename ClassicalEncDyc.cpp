@@ -6,12 +6,13 @@
 #include<sstream>
 #include<string>
 #include<vector>
+#include <algorithm>
 
 using namespace std;
 
 constexpr int num_of_letters = 26; //number of uppercase letters.
 constexpr int rep_of_A= 65; //The integer representation of the smallest capital letter, 'A' in ASCII
-string cleaned = "cleaned_pt.txt"; //where cleaned plaintext is stored. See clean_text for how text is cleaned.
+string cleaned = "cleaned.txt"; //where cleaned text is stored. See clean_text for how text is cleaned.
 vector<double> eng_letter_mfreq{ 8.167, 1.492 ,2.782,4.253,12.702,2.228,2.015,6.094,6.966,0.153,0.772,4.025,2.406,6.749,7.507,
 								1.929,0.095,5.987,6.327,9.056,2.758,0.978,2.360,0.150,1.974,0.074 }; //26 positions for the 26 english letters
 																									//hardcoded numbers are percentages for mono frequency for associated letter
@@ -61,7 +62,7 @@ inline void error(const string& s, int i)
 //Numerical
 vector<double> get_freq(const string& inname) {//returns the frequency of english letters found in the plain text file given.
 	//Note this function assumes text given has already been cleaned
-	ifstream ist{ inname };
+	istringstream ist{ inname };
 	if (!ist) error("Cannot open file to get freq of letters!");
 	
 	vector<double> count(26);
@@ -71,6 +72,10 @@ vector<double> get_freq(const string& inname) {//returns the frequency of englis
 	
 	return count;
 }
+
+inline int mod(int a, int b) { int x = a % b; return x >= 0 ? x : x + 26; } //% in C++ rounds towards 0 and does not yield mathematical remainder for negatives. ie. -7%3 =-1 rather than 2
+
+
 
 ciphers int_to_cipher(int x) {//simple check just in case int given is not associated with a cipher
 	if (x< 1 || x>(int) ciphers::vigenere) error("Given int not associated with listed ciphers. \n");
@@ -87,7 +92,7 @@ void clean_text(const string& inname, const string& outname) {//convert all alph
 	for (char ch; ist.get(ch);) {
 
 		if (isalpha(ch)) {
-			toupper(ch);
+			ch = toupper(ch);
 			ost << ch;
 		}
 		else {
@@ -100,31 +105,33 @@ void clean_text(const string& inname, const string& outname) {//convert all alph
 
 //Caesar
 void Caesar_enc(const string& inname, const string& outname, int& key) {
-	key %= 26; // Do a quick conversion for the key in case its larger than 25 since a shift by, say, 26 characters is really no shift at all
+	//Assumes uncleaned text
+	key %=26; // Do a quick conversion for the key in case its larger than 25 since a shift by, say, 26 characters is really no shift at all
 	
 	clean_text(inname, cleaned);
 
 	ifstream ist{ cleaned };
 	if (!ist) error("Error! Cannot open converted plain text file for reading!");
-	ofstream ost{ outname };
+	ofstream ost{ outname, ios_base::trunc };
 
 	for (char ch; ist.get(ch);) {
-		ch = (ch-rep_of_A + key) %  rep_of_A + num_of_letters;//convert to letter to within 0-25, shift by chosen amout then conversion back to the ASCII range of 65-90
+		ch = mod((ch-rep_of_A + key),num_of_letters) + rep_of_A;//convert to letter to within 0-25, shift by chosen amout then conversion back to the ASCII range of 65-90
 		ost << ch;
 	}
 
 }
 
 void Caesar_dec(const string& inname, const string& outname, int& key) {//decryption assuming key is given
+	//Assumes uncleaned text
 	key %= 26;
 	clean_text(inname, cleaned);
 
 	ifstream ist{ cleaned };
 	if (!ist) error("Error! Cannot open converted plain text file for reading!");
-	ofstream ost{ outname };
+	ofstream ost{ outname, ios_base::trunc };
 
 	for (char ch; ist.get(ch);) {
-		ch = (ch-rep_of_A - key) % num_of_letters + rep_of_A;
+		ch = mod((ch-rep_of_A - key),num_of_letters) + rep_of_A;
 		ost << ch;
 	}
 }
@@ -137,27 +144,35 @@ void Caesar_dec(const string& inname, const string& outname) {//decryption assum
 	if (!ist) error("Error! Cannot open converted plain text file for reading!");
 	
 	vector<vector<double>> possible_keys(26);//will hold the generated freq of letters based upon each possible key from A-Z
-	vector<double> differences;//will store the differences between the freq of each possible key vector and the vector of the actual freq
-	for (char key = 'A'; key <= 'Z'; ++key) {
-		ofstream ost{ "possiblekey.txt", ios_base::trunc }; //place new text after decryption from possible key here
+	vector<double> differences(26);//will store the differences between the freq of each possible key vector and the vector of the actual freq
+
+	for (int key = 0; key <= 25; ++key) {
+		ist.clear();//reset reading position to begining
+		ist.seekg(0, ios_base::beg);
+
+		string s; //place new text after decryption from possible key here
 		for (char ch; ist.get(ch);) {
-			ch = (ch - rep_of_A - key) % num_of_letters + rep_of_A;
-			ost << ch;
+			ch = mod((ch - rep_of_A - key), num_of_letters) + rep_of_A;
+			s += ch;
 		}
 
-		possible_keys[(int)key - 65] = get_freq("possiblekey.txt");
+		possible_keys[key] = get_freq(s);
 	}
 
-	for (int i = 0; i < 26; ++i) {//calculate the distance between the vectors, ie. ||u-v|| = sqrt ( (u_1-v_2)^2 + (u_2+v_2)^2 +...+ (u_26+v_26)^2 ) where the euclidean norm is the one on R^26
+
+	for (int i = 0; i < 26; ++i) {//calculate the distance between the vectors, ie. ||u-v|| = sqrt ( (u_1-v_2)^2 + (u_2-v_2)^2 +...+ (u_26-v_26)^2 ) where the euclidean norm is the one on R^26
 		double sum = 0;
-		for (int j = 0; j < 26; ++j) {//find (u_1-v_2)^2 + (u_2+v_2)^2 +...+ (u_26+v_26)^2
+		for (int j = 0; j < 26; ++j) {//find (u_1-v_2)^2 + (u_2-v_2)^2 +...+ (u_26-v_26)^2
 			sum += pow((eng_letter_mfreq[j] - possible_keys[i][j]), 2); 
 		}
 		differences[i] = sqrt(sum);
 	}
 
-	a
-	char key = (char)
+
+
+	int closest = distance(differences.begin(), min_element(differences.begin(), differences.end())); //find the smallest number corresponding to the closest to the freq of english and return its position
+	cout << "Best guess is: " << (char)(closest + 65) << "\n";
+	Caesar_dec(inname, outname, closest); //key found, call Caesar decryption as usual
 }
 //End of Caesar
 
@@ -214,7 +229,7 @@ int get_num() {//takes number given by user. Used for key
 		}
 		else if (num <= 0) cout << "Invalid number entered, must be greater than 0. Try again. \n";
 	}
-
+	cin.ignore();
 	return num;
 }
 
@@ -258,7 +273,7 @@ int main() {
 			if (request.action == encrypt) {
 				cout << "plaintext file name? \n";
 				inname = get_filename();
-				cout << "key? \n";
+				cout << "Key? Please enter the number representing the letter where A=0 and Z=25. \n";
 				key = get_num();
 				cout << "Name of file to place encrypted text? \n";
 				outname = get_filename();
@@ -267,13 +282,13 @@ int main() {
 			}
 
 			else {//must've been decrypt, forced encrypt or decrypt. See above
-				cout << "plaintext file name? \n";
+				cout << "cipher text file name? \n";
 				inname = get_filename();
 				cout << "Name of file to place decrypted text? \n";
 				outname = get_filename();
-				cout << "Do you know the key? \n";
+				cout << "Do you know the key? (y) or (n) \n";
 				if (get_yesno()){
-					cout << "Key? \n";
+					cout << "Key? Please enter the number representing the letter where A=0 and Z=25. \n";
 					key = get_num();
 					Caesar_dec(inname, outname, key);
 				}
