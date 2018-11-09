@@ -13,6 +13,8 @@ Windows:
 3. To compile type and enter: `cl /EHsc "Classical".cpp` (or whatever you changed the name of the program to, still in double quotes).
 4. Once it has successfuly compiled type and enter: `"Classical".exe` to run the program.
 
+Alternatively to simply run the program go to the releases tab, download the exe and run from console using step 4 above.
+
 For more specific instructions please click this [link](https://msdn.microsoft.com/en-ca/library/ms235639.aspx).
 
 ## Change Log
