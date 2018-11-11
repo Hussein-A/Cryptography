@@ -18,6 +18,10 @@ Alternatively to simply run the program go to the releases tab, download the exe
 For more specific instructions please click this [link](https://msdn.microsoft.com/en-ca/library/ms235639.aspx).
 
 ## Change Log
+* 1.1.0
+  * Added Vigenere encryption and decryption (with/without key) using Friedman attack.
+  * Cipher functions no longer  take file name to read text rather they assume a cleaned string of the text..
+
 
 * 1.0.0
   * First proper release includes Caesar enc, dec and attack.
