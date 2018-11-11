@@ -13,7 +13,7 @@ using namespace std;
 constexpr int num_of_letters = 26; //number of uppercase letters.
 constexpr int rep_of_A= 65; //The integer representation of the smallest capital letter, 'A' in ASCII
 string cleaned = "cleaned.txt"; //where cleaned text is stored. See clean_text for how text is cleaned.
-vector<double> eng_letter_mfreq{ 8.167, 1.492 ,2.782,4.253,12.702,2.228,2.015,6.094,6.966,0.153,0.772,4.025,2.406,6.749,7.507,
+const vector<double> eng_letter_mfreq{ 8.167, 1.492 ,2.782,4.253,12.702,2.228,2.015,6.094,6.966,0.153,0.772,4.025,2.406,6.749,7.507,
 								1.929,0.095,5.987,6.327,9.056,2.758,0.978,2.360,0.150,1.974,0.074 }; //26 positions for the 26 english letters
 																									//hardcoded numbers are percentages for mono frequency for associated letter
 
@@ -35,7 +35,7 @@ struct cipher_action {
 
 
 
-//Error handling. Note the following was borrowed from Strouroup's Programming: Principles and Practice using C++
+//Error handling. Note the following is based on Strouroup's Programming: Principles and Practice using C++
 struct Exit : runtime_error {
 	Exit() : runtime_error("Exit") {}
 };
@@ -60,20 +60,20 @@ inline void error(const string& s, int i)
 //End of Error Handling
 
 //Numerical
-vector<double> get_freq(const string& inname) {//returns the frequency of english letters found in the plain text file given.
+vector<int> get_freq(const string& inname) {//returns the frequency of english letters found in the plain text file given.
 	//Note this function assumes text given has already been cleaned
 	istringstream ist{ inname };
 	if (!ist) error("Cannot open file to get freq of letters!");
+
 	
-	vector<double> count(26);
+	vector<int> count(26);
 	for (char ch; ist.get(ch);) {
 		++count[(int)ch - 65]; //each position of the vector is associated with the letter in natural alphabetical order. Check what letter you have converting to int and subtracting 65 to be in range 0-25
 	}
-	
 	return count;
 }
 
-inline int mod(int a, int b) { int x = a % b; return x >= 0 ? x : x + 26; } //% in C++ rounds towards 0 and does not yield mathematical remainder for negatives. ie. -7%3 =-1 rather than 2
+inline int mod(int a, int b) { int x = a % b; return x >= 0 ? x : x + 26; } // % in C++ rounds towards 0 and does not yield mathematical remainder for negatives. ie. -7%3 =-1 rather than 2
 
 
 
@@ -82,51 +82,48 @@ ciphers int_to_cipher(int x) {//simple check just in case int given is not assoc
 	return ciphers(x);
 }
 
-void clean_text(const string& inname, const string& outname) {//convert all alphabetical characters to uppercase ignoring everything else including punctuation, output to chosen file name. Ie. A B! c?##D. becomes ABCD 
+string clean_text(const string& inname, const string& outname) {//convert all alphabetical characters to uppercase ignoring everything else including punctuation, output to chosen file name. Ie. A B! c?##D. becomes ABCD 
 
+	string s; //will be same as text in the text file but in string in case caller requests string for ease of use
 	ifstream ist{ inname };
 	if (!ist) error("Error! Cannot open plain text file for reading!");
-
 	ofstream ost{ outname, ios_base::trunc }; //file where cleaned text will be stored. Note anything in there will be deleted before writing to it
 
 	for (char ch; ist.get(ch);) {
 
 		if (isalpha(ch)) {
 			ch = toupper(ch);
+			s += ch;
 			ost << ch;
 		}
 		else {
 			//if its not alphabetical do nothing and just eat the character.
 		}
 	}
+	return s;
 }
 
 
 
 //Caesar
-void Caesar_enc(const string& inname, const string& outname, int& key) {
-	//Assumes uncleaned text
+void Caesar_enc(const string& cipher, const string& outname, int& key) {
+	//Assumes cleaned text in string
 	key %=26; // Do a quick conversion for the key in case its larger than 25 since a shift by, say, 26 characters is really no shift at all
-	
-	clean_text(inname, cleaned);
-
-	ifstream ist{ cleaned };
-	if (!ist) error("Error! Cannot open converted plain text file for reading!");
 	ofstream ost{ outname, ios_base::trunc };
 
-	for (char ch; ist.get(ch);) {
-		ch = mod((ch-rep_of_A + key),num_of_letters) + rep_of_A;//convert to letter to within 0-25, shift by chosen amout then conversion back to the ASCII range of 65-90
+	for (char ch : cipher) {
+		ch = mod((ch-rep_of_A + key),num_of_letters) + rep_of_A;//convert to letter to within 0-25, shift by chosen amount then conversion back to the ASCII range of 65-90
 		ost << ch;
 	}
 
 }
 
-void Caesar_dec(const string& inname, const string& outname, int& key) {//decryption assuming key is given
-	//Assumes uncleaned text
+void Caesar_dec(const string& cipher, const string& outname, int& key) {//decryption assuming key is given
+	//Assumes cleaned text in string
 	key %= 26;
-	clean_text(inname, cleaned);
+	
 
-	ifstream ist{ cleaned };
+	istringstream ist{ cipher };
 	if (!ist) error("Error! Cannot open converted plain text file for reading!");
 	ofstream ost{ outname, ios_base::trunc };
 
@@ -136,22 +133,22 @@ void Caesar_dec(const string& inname, const string& outname, int& key) {//decryp
 	}
 }
 
-void Caesar_dec(const string& inname, const string& outname) {//decryption assuming no key is given (ie attack)
-	//Assumes uncleaned text
+char Caesar_dec(const string& cipher, const string& outname) {//decryption assuming no key is given (ie attack)
+	//Assumes cleaned text in string
+	//Return the best guess for what the key is (char value is needed for vigenere dec without key)
+	//Use dot product of frequency vector to measure closeness to actual english mono frequency
 	//Note that the frequency of the letters (mono) are currently hardcoded and drawn from Wikipedia. See vector eng_letter_mfreq top.
-	clean_text(inname, cleaned);
-	ifstream ist{ cleaned };
+	istringstream ist{ cipher };
 	if (!ist) error("Error! Cannot open converted plain text file for reading!");
 	
-	vector<vector<double>> possible_keys(26);//will hold the generated freq of letters based upon each possible key from A-Z
+	vector<vector<int>> possible_keys(26);//will hold the generated freq of letters based upon each possible key from A-Z
 	vector<double> differences(26);//will store the differences between the freq of each possible key vector and the vector of the actual freq
 
 	for (int key = 0; key <= 25; ++key) {
-		ist.clear();//reset reading position to begining
-		ist.seekg(0, ios_base::beg);
+		
 
 		string s; //place new text after decryption from possible key here
-		for (char ch; ist.get(ch);) {
+		for (char ch : cipher) {
 			ch = mod((ch - rep_of_A - key), num_of_letters) + rep_of_A;
 			s += ch;
 		}
@@ -172,11 +169,103 @@ void Caesar_dec(const string& inname, const string& outname) {//decryption assum
 
 	int closest = distance(differences.begin(), min_element(differences.begin(), differences.end())); //find the smallest number corresponding to the closest to the freq of english and return its position
 	cout << "Best guess is: " << (char)(closest + 65) << "\n";
-	Caesar_dec(inname, outname, closest); //key found, call Caesar decryption as usual
+	Caesar_dec(cipher, outname, closest); //key found, call Caesar decryption as usual
+	return (char)(closest+65);
 }
 //End of Caesar
 
+//Vigenere
+void Vigenere_enc(const string& plain, const string&outname, string& key) {
+	//Assumes clean text in string
+	int pos = 0; //position of the key, determines which letter of the key (ie which k_i) we use to shift a particular character
+	int block_size = key.size();
+	string temp;
 
+	for (const char& c : key) {//convert to upper case the key
+		if (isalpha(c)) {
+			temp.push_back(toupper(c));
+		}
+		else {
+			//if its not alphabetical do nothing and just eat the character.
+		}
+	}
+	key = temp;
+
+	ofstream ost{ outname, ios_base::trunc };
+
+	for (char ch : plain) {
+		ch = mod((ch - rep_of_A + key[mod(pos, block_size)]-rep_of_A), num_of_letters) + rep_of_A; //mod(pos, block_size) represents which letter of the key we are using to shift, mod is used so that the position chosen is cyclic 0-1-2-...-block_size
+		ost << ch;
+		++pos;
+	}
+
+}
+
+void Vigenere_dec(const string& cipher, const string&outname, string& key) {
+	int pos = 0;
+	int block_size = key.size();
+	string temp;
+
+	for (const char& c : key) {//convert to upper case the key
+		if (isalpha(c)) {
+			temp+=toupper(c);
+		}
+		else {
+			//if its not alphabetical do nothing and just eat the character.
+		}
+	}
+	key = temp;
+
+
+	ofstream ost{ outname, ios_base::trunc };
+
+	for (char ch : cipher) {
+		ch = mod((ch - rep_of_A - key[mod(pos, block_size)] - rep_of_A), num_of_letters) + rep_of_A; //mod(pos, block_size) represents which letter of the key we are using to shift, mod is used so that the position chosen is cyclic 0-1-2-...-block_size
+		ost << ch;
+		++pos;
+	}
+	
+}
+
+void Vigenere_dec(const string& cipher, const string&outname) {
+	//overloaded, assuming no key. Use Index of Coincidence to determine key length then apply Caesar decryption for each nth letter for n up to the key size.
+	//Note assumes that at least 500 characters of cipher text is given else will lead to erroneous result.
+	//initializers
+	int text_size = cipher.size();
+	int period =0; //Ie. length of key
+	string key;
+	double Ic =0; //index of coincidence. Formula is: Ic = 1/(N*(N-1))*Sum_(k=A)to(k=Z)[N_A(N_A-1)]. 
+	vector<int> letter_count = get_freq(cipher);
+
+
+	//calculate Ic
+	int sum =0;
+	for (int i : letter_count) {
+		sum += i*(i-1);
+	}
+
+	Ic = (double)sum / (text_size*(text_size - 1));
+
+	//calculate period
+	period = round(0.027*text_size / ((text_size - 1)*Ic + 1 - 0.038*text_size)+1);
+	cout << "Suspected period is: " << period << "\n\n";
+
+	//parition the cipher text into period blocks and for each 0<i<period take every ith letter in every block and form a new text
+	string temp;
+	for (int i = 0; i < period; ++i) {
+		temp = "";
+		for (int k = 0; i + k * period < text_size; ++k) {//ensure that we do not seek beyond the end of file.
+			temp+= cipher[i + k * period];
+		}
+		key+=Caesar_dec(temp, outname); 	//Apply caesar decryption with unknown key on each partition to determine key
+	}
+
+
+
+	//key found call regular decryption for vigenere
+	Vigenere_dec(cipher, outname, key);	
+}
+//End of Vigenere
 
 
 
@@ -233,7 +322,7 @@ int get_num() {//takes number given by user. Used for key
 	return num;
 }
 
-inline string get_filename() {
+inline string get_string() {
 	string inname;
 	getline(cin, inname);
 	return inname;
@@ -272,38 +361,64 @@ int main() {
 		case ciphers::caesar:
 			if (request.action == encrypt) {
 				cout << "plaintext file name? \n";
-				inname = get_filename();
+				inname = get_string();
 				cout << "Key? Please enter the number representing the letter where A=0 and Z=25. \n";
 				key = get_num();
 				cout << "Name of file to place encrypted text? \n";
-				outname = get_filename();
+				outname = get_string();
 
-				Caesar_enc(inname, outname, key);
+				Caesar_enc(clean_text(inname, cleaned), outname, key);
 			}
 
 			else {//must've been decrypt, forced encrypt or decrypt. See above
 				cout << "cipher text file name? \n";
-				inname = get_filename();
+				inname = get_string();
 				cout << "Name of file to place decrypted text? \n";
-				outname = get_filename();
+				outname = get_string();
 				cout << "Do you know the key? (y) or (n) \n";
 				if (get_yesno()){
 					cout << "Key? Please enter the number representing the letter where A=0 and Z=25. \n";
 					key = get_num();
-					Caesar_dec(inname, outname, key);
+					Caesar_dec(clean_text(inname, cleaned), outname, key);
 				}
 				else {
-					Caesar_dec(inname, outname);
+					Caesar_dec(clean_text(inname, cleaned), outname);
 				}
 			}
 			break;
 		case ciphers::hill:
 			//PLACEHOLDER//
-			//first check if the action is encrypt or decrypt then call the associated affine function
+			//first check if the action is encrypt or decrypt then call the associated hill function
 			break;
 		case ciphers::vigenere:
-			//PLACEHOLDER//
-			//first check if the action is encrypt or decrypt then call the associated affine function
+			if (request.action == encrypt) {
+				string key_string; //since key is usually given as a word.
+				cout << "plaintext file name? \n";
+				inname = get_string();
+				cout << "Key? Please enter the string of characters representing the key. \n";
+				key_string = get_string();
+				cout << "Name of file to place encrypted text? \n";
+				outname = get_string();
+
+				Vigenere_enc(clean_text(inname, cleaned), outname, key_string);
+			}
+
+			else {//must've been decrypt, forced encrypt or decrypt. See above
+				cout << "cipher text file name? \n";
+				inname = get_string();
+				cout << "Name of file to place decrypted text? \n";
+				outname = get_string();
+				cout << "Do you know the key? (y) or (n) \n";
+				if (get_yesno()) {
+					string key_string;
+					cout << "Key ? Please enter the string of characters representing the key. \n";
+					key_string = get_string();
+					Vigenere_dec(clean_text(inname, cleaned), outname, key_string);
+				}
+				else {
+					Vigenere_dec(clean_text(inname, cleaned), outname);
+				}
+			}
 			break;
 		}
 		cout << "Complete! \n";
