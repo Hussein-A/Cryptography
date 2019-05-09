@@ -1,4 +1,4 @@
-Hello, my name is Hussein Ahmad and this is the plaintext file for the program ClassicalEncDyc. The following is random text gathered from the interent
+This is the plaintext file for the program ClassicalEncDyc. The following is random text gathered from the interent
 
 
 
