@@ -18,6 +18,9 @@ Alternatively to simply run the program go to the releases tab, download the exe
 For more specific instructions please click this [link](https://msdn.microsoft.com/en-ca/library/ms235639.aspx).
 
 ## Change Log
+* January 21/2021
+  * Added python version.
+
 * 1.1.0
   * Added Vigenere encryption and decryption (with/without key) using Friedman attack.
   * Cipher functions no longer  take file name to read text rather they assume a cleaned string of the text..
