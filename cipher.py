@@ -20,12 +20,13 @@ class Caeser(Cipher):
 
     def encrypt(self, plain_text, key):
         clean_text = self.cleanText(plain_text)
-        cipher_text = ''.join(rotateCharBy(ch) for ch in clean_text)
+        cipher_text = ''.join(rotateCharBy(ch, key) for ch in clean_text)
         print(cipher_text)
             
 
     def decrypt(self, cipher_text, key):
-        pass
+        plain_text = ''.join(rotateCharBy(ch, key) for ch in cipher_text)
+        print(plain_text)
 
     def rotateCharBy(char, rotation):
         assert char in string.ascii_uppercase
@@ -36,7 +37,4 @@ class Caeser(Cipher):
 
         return chr(charAsInt)
 
-
-        
-        
     
